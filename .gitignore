@@ -1,0 +1,8 @@
+# Track input/ and output/ dirs; ignore their contents except .gitkeep
+input/*
+!input/.gitkeep
+output/*
+!output/.gitkeep
+
+node_modules/
+.DS_Store
