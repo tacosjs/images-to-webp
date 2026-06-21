@@ -52,7 +52,10 @@ function SummaryBar({ totalOriginal, totalOutput }: SummaryBarProps) {
         <span className={`summary-saved ${pctColor(saved)}`}>−{saved}%</span>
       </div>
       <div className="summary-bar-track">
-        <div className="summary-bar-output" style={{ width: `${outputPct}%` }} />
+        <div
+          className="summary-bar-output"
+          style={{ width: `${outputPct}%` }}
+        />
         <div className="summary-bar-saved" style={{ width: `${savedPct}%` }} />
       </div>
       <div className="summary-bar-labels">
@@ -69,7 +72,8 @@ interface FileRowProps {
 
 function FileRow({ result }: FileRowProps) {
   const name = result.input.split("/").pop() ?? result.input;
-  const hasSize = result.original_size && result.output_size && result.original_size > 0;
+  const hasSize =
+    result.original_size && result.output_size && result.original_size > 0;
   const reduction = hasSize
     ? pct(result.original_size!, result.output_size!)
     : null;
@@ -83,7 +87,9 @@ function FileRow({ result }: FileRowProps) {
         <span className="log-icon">✗</span>
         <div className="log-info">
           <span className="log-name">{name}</span>
-          <span className="log-error">{result.error ?? "Conversion failed"}</span>
+          <span className="log-error">
+            {result.error ?? "Conversion failed"}
+          </span>
         </div>
       </li>
     );
@@ -96,13 +102,16 @@ function FileRow({ result }: FileRowProps) {
         <div className="log-name-row">
           <span className="log-name">{name}</span>
           {reduction !== null && (
-            <span className={`log-pct ${pctColor(reduction)}`}>−{reduction}%</span>
+            <span className={`log-pct ${pctColor(reduction)}`}>
+              −{reduction}%
+            </span>
           )}
         </div>
         {hasSize && (
           <>
             <span className="log-sizes">
-              {formatBytes(result.original_size!)} → {formatBytes(result.output_size!)}
+              {formatBytes(result.original_size!)} →{" "}
+              {formatBytes(result.output_size!)}
             </span>
             <div className="log-bar-track">
               <div className="log-bar-fill" style={{ width: `${fillPct}%` }} />
@@ -123,7 +132,10 @@ export function HistoryLog({ history, onClear }: Props) {
   // Aggregate totals across all batches
   const allResults = history.flatMap((b) => b.results);
   const successful = allResults.filter((r) => r.success);
-  const totalOriginal = successful.reduce((s, r) => s + (r.original_size ?? 0), 0);
+  const totalOriginal = successful.reduce(
+    (s, r) => s + (r.original_size ?? 0),
+    0,
+  );
   const totalOutput = successful.reduce((s, r) => s + (r.output_size ?? 0), 0);
 
   if (history.length === 0) {
@@ -162,9 +174,12 @@ export function HistoryLog({ history, onClear }: Props) {
         {history.map((batch) => (
           <div key={batch.id} className="log-batch">
             <div className="log-batch-header">
-              <span className="log-batch-time">{timeAgo(batch.completedAt)}</span>
+              <span className="log-batch-time">
+                {timeAgo(batch.completedAt)}
+              </span>
               <span className="log-batch-count">
-                {batch.results.length} file{batch.results.length !== 1 ? "s" : ""}
+                {batch.results.length} file
+                {batch.results.length !== 1 ? "s" : ""}
               </span>
             </div>
             <ul className="log-list">

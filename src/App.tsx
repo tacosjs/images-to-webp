@@ -5,6 +5,7 @@ import { WatchMode } from "./components/WatchMode";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { HistoryLog, HistoryBatch } from "./components/HistoryLog";
 import { ConversionConfig, ConversionResult } from "./lib/commands";
+
 import "./App.css";
 
 type Mode = "manual" | "watch" | "log";
@@ -13,13 +14,15 @@ function loadConfig(): ConversionConfig {
   try {
     const raw = localStorage.getItem("settings:config");
     if (raw) return JSON.parse(raw);
-  } catch {}
+  } catch {
+    /* ignore */
+  }
   return { max_size: 2048, quality: 80 };
 }
 
 export default function App() {
   const [mode, setMode] = useState<Mode>(
-    () => (localStorage.getItem("mode") as Mode | null) ?? "manual"
+    () => (localStorage.getItem("mode") as Mode | null) ?? "manual",
   );
   const [config, setConfig] = useState<ConversionConfig>(loadConfig);
   const [history, setHistory] = useState<HistoryBatch[]>([]);
@@ -41,17 +44,20 @@ export default function App() {
   // Listen globally to conversion:complete to build history across all modes
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    listen<{ results?: ConversionResult[] }>("conversion:complete", ({ payload }) => {
-      const results = payload.results;
-      if (!results || results.length === 0) return;
-      const batch: HistoryBatch = {
-        id: ++batchIdRef.current,
-        completedAt: Date.now(),
-        results,
-      };
-      setHistory((prev) => [batch, ...prev]);
-      setUnseenCount((n) => n + results.length);
-    }).then((fn) => {
+    listen<{ results?: ConversionResult[] }>(
+      "conversion:complete",
+      ({ payload }) => {
+        const results = payload.results;
+        if (!results || results.length === 0) return;
+        const batch: HistoryBatch = {
+          id: ++batchIdRef.current,
+          completedAt: Date.now(),
+          results,
+        };
+        setHistory((prev) => [batch, ...prev]);
+        setUnseenCount((n) => n + results.length);
+      },
+    ).then((fn) => {
       unlisten = fn;
     });
     return () => unlisten?.();

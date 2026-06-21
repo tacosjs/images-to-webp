@@ -31,7 +31,7 @@ export interface WatchStatus {
 export const convertBatch = (
   inputPaths: string[],
   outputDir: string,
-  config: ConversionConfig
+  config: ConversionConfig,
 ): Promise<ConversionResult[]> =>
   invoke("convert_batch", { inputPaths, outputDir, config });
 

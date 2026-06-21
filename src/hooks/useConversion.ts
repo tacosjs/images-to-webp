@@ -43,7 +43,7 @@ export function useConversion() {
             total: payload.total,
             startedAt: Date.now(),
           });
-        }
+        },
       );
 
       const unFileStart = await listen<{ file: string; index: number }>(
@@ -51,7 +51,7 @@ export function useConversion() {
         ({ payload }) => {
           fileStartRef.current = Date.now();
           setProgress((prev) => ({ ...prev, currentFile: payload.file }));
-        }
+        },
       );
 
       const unProgress = await listen<{
@@ -105,7 +105,7 @@ export function useConversion() {
             currentFile: null,
             results: payload.results ?? prev.results,
           }));
-        }
+        },
       );
 
       unlisteners.current = [unStart, unFileStart, unProgress, unComplete];

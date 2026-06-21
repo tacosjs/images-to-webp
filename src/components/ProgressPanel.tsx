@@ -26,7 +26,15 @@ interface Props {
 }
 
 export function ProgressPanel({ progress, onReset }: Props) {
-  const { isRunning, total, completed, currentFile, startedAt, avgMsPerFile, results } = progress;
+  const {
+    isRunning,
+    total,
+    completed,
+    currentFile,
+    startedAt,
+    avgMsPerFile,
+    results,
+  } = progress;
 
   // Tick every 100 ms while running so elapsed/ETA updates smoothly
   const [, setTick] = useState(0);
@@ -65,7 +73,9 @@ export function ProgressPanel({ progress, onReset }: Props) {
               {formatDuration(elapsedMs)}
             </span>
             {etaMs !== null && (
-              <span className="progress-time eta">~{formatDuration(etaMs)} left</span>
+              <span className="progress-time eta">
+                ~{formatDuration(etaMs)} left
+              </span>
             )}
           </div>
 
@@ -81,7 +91,9 @@ export function ProgressPanel({ progress, onReset }: Props) {
           {currentFile && (
             <div className="progress-current">
               <span className="progress-current-label">Processing</span>
-              <span className="progress-current-file">{basename(currentFile)}</span>
+              <span className="progress-current-file">
+                {basename(currentFile)}
+              </span>
             </div>
           )}
         </>
@@ -110,7 +122,9 @@ export function ProgressPanel({ progress, onReset }: Props) {
                 <span className="result-name">{basename(r.input)}</span>
                 {r.success && r.output_size !== undefined && (
                   <span className="result-size">
-                    {r.original_size ? `${formatBytes(r.original_size)} → ` : ""}
+                    {r.original_size
+                      ? `${formatBytes(r.original_size)} → `
+                      : ""}
                     {formatBytes(r.output_size)}
                     {saved !== null && (
                       <span className="result-pct"> −{saved}%</span>

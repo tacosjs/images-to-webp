@@ -22,14 +22,14 @@ interface Props {
 }
 
 export function WatchMode({ config }: Props) {
-  const [sourceDir, setSourceDir] = useState(() =>
-    localStorage.getItem("watch:sourceDir") ?? ""
+  const [sourceDir, setSourceDir] = useState(
+    () => localStorage.getItem("watch:sourceDir") ?? "",
   );
-  const [outputDir, setOutputDir] = useState(() =>
-    localStorage.getItem("watch:outputDir") ?? ""
+  const [outputDir, setOutputDir] = useState(
+    () => localStorage.getItem("watch:outputDir") ?? "",
   );
   const [intervalSecs, setIntervalSecs] = useState(() =>
-    Number(localStorage.getItem("watch:intervalSecs") ?? "0")
+    Number(localStorage.getItem("watch:intervalSecs") ?? "0"),
   );
   const [status, setStatus] = useState<WatchStatus>({ active: false });
   const { progress, reset } = useConversion();
@@ -83,7 +83,11 @@ export function WatchMode({ config }: Props) {
       <div className="folder-row">
         <span className="folder-label">Source</span>
         <span className="folder-path">{sourceDir || "—"}</span>
-        <button className="btn-secondary" disabled={status.active} onClick={pickSource}>
+        <button
+          className="btn-secondary"
+          disabled={status.active}
+          onClick={pickSource}
+        >
           Choose…
         </button>
       </div>
@@ -91,7 +95,11 @@ export function WatchMode({ config }: Props) {
       <div className="folder-row">
         <span className="folder-label">Output</span>
         <span className="folder-path">{outputDir || "—"}</span>
-        <button className="btn-secondary" disabled={status.active} onClick={pickOutput}>
+        <button
+          className="btn-secondary"
+          disabled={status.active}
+          onClick={pickOutput}
+        >
           Choose…
         </button>
       </div>
@@ -121,7 +129,11 @@ export function WatchMode({ config }: Props) {
             </button>
           </>
         ) : (
-          <button className="btn-primary" disabled={!canStart} onClick={handleStart}>
+          <button
+            className="btn-primary"
+            disabled={!canStart}
+            onClick={handleStart}
+          >
             Start watching
           </button>
         )}

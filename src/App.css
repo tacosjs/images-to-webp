@@ -1,4 +1,8 @@
-*, *::before, *::after {
+@import "tailwindcss";
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -82,13 +86,15 @@ body {
   border-radius: var(--radius);
   font-size: 13px;
   font-weight: 500;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .tab.active {
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Settings panel ── */
@@ -123,7 +129,7 @@ body {
 
 .input-row input[type="range"] {
   flex: 1;
-  accent-color: var(--accent);
+  accent-color: var(--accent); /* eslint-disable-line css/use-baseline */
 }
 
 .value-badge {
@@ -155,7 +161,9 @@ body {
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
   min-height: 160px;
 }
 
@@ -262,7 +270,9 @@ body {
   font-size: 14px;
   font-weight: 600;
   padding: 10px 20px;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
   width: 100%;
 }
 
@@ -373,17 +383,31 @@ body {
 /* ── Progress panel ── */
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position:  200% center; }
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 @keyframes pulse-dot {
-  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-  40%           { opacity: 1;   transform: scale(1);   }
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .progress-panel {
@@ -519,8 +543,12 @@ body {
   min-width: 14px;
 }
 
-.result-ok .result-icon { color: var(--success); }
-.result-fail .result-icon { color: var(--danger); }
+.result-ok .result-icon {
+  color: var(--success);
+}
+.result-fail .result-icon {
+  color: var(--danger);
+}
 
 .result-name {
   flex: 1;
@@ -711,8 +739,12 @@ body {
   width: 14px;
 }
 
-.log-row--ok .log-icon   { color: var(--success); }
-.log-row--fail .log-icon { color: var(--danger); }
+.log-row--ok .log-icon {
+  color: var(--success);
+}
+.log-row--fail .log-icon {
+  color: var(--danger);
+}
 
 .log-info {
   flex: 1;
@@ -773,9 +805,15 @@ body {
 
 /* Reduction % colour classes */
 
-.pct-great  { color: var(--success); }
-.pct-good   { color: var(--accent); }
-.pct-modest { color: var(--text-muted); }
+.pct-great {
+  color: var(--success);
+}
+.pct-good {
+  color: var(--accent);
+}
+.pct-modest {
+  color: var(--text-muted);
+}
 
 /* Empty state */
 
