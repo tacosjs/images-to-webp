@@ -57,7 +57,10 @@ export function useConversion() {
       const unProgress = await listen<{
         file: string;
         index: number;
+        completed: number;
+        total: number;
         success: boolean;
+        originalSize: number;
         outputSize: number;
       }>("conversion:progress", ({ payload }) => {
         // Record timing sample
@@ -77,7 +80,7 @@ export function useConversion() {
 
         setProgress((prev) => ({
           ...prev,
-          completed: payload.index + 1,
+          completed: payload.completed,
           currentFile: null,
           avgMsPerFile: avg,
           results: [
@@ -86,6 +89,7 @@ export function useConversion() {
               success: payload.success,
               input: payload.file,
               output: "",
+              original_size: payload.originalSize,
               output_size: payload.outputSize,
             },
           ],

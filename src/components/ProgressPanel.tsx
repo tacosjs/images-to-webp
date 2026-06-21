@@ -99,18 +99,30 @@ export function ProgressPanel({ progress, onReset }: Props) {
 
       {results.length > 0 && (
         <ul className="result-list">
-          {results.map((r, i) => (
-            <li key={i} className={r.success ? "result-ok" : "result-fail"}>
-              <span className="result-icon">{r.success ? "✓" : "✗"}</span>
-              <span className="result-name">{basename(r.input)}</span>
-              {r.success && r.output_size !== undefined && (
-                <span className="result-size">{formatBytes(r.output_size)}</span>
-              )}
-              {!r.success && r.error && (
-                <span className="result-error">{r.error}</span>
-              )}
-            </li>
-          ))}
+          {results.map((r, i) => {
+            const saved =
+              r.original_size && r.output_size && r.original_size > 0
+                ? Math.round((1 - r.output_size / r.original_size) * 100)
+                : null;
+            return (
+              <li key={i} className={r.success ? "result-ok" : "result-fail"}>
+                <span className="result-icon">{r.success ? "✓" : "✗"}</span>
+                <span className="result-name">{basename(r.input)}</span>
+                {r.success && r.output_size !== undefined && (
+                  <span className="result-size">
+                    {r.original_size ? `${formatBytes(r.original_size)} → ` : ""}
+                    {formatBytes(r.output_size)}
+                    {saved !== null && (
+                      <span className="result-pct"> −{saved}%</span>
+                    )}
+                  </span>
+                )}
+                {!r.success && r.error && (
+                  <span className="result-error">{r.error}</span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

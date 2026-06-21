@@ -16,7 +16,8 @@ pub async fn convert_batch(
 ) -> Result<Vec<ConversionResult>, String> {
     let output = PathBuf::from(&output_dir);
 
-    let mut images: Vec<(PathBuf, PathBuf)> = Vec::new(); // (image_path, source_root)
+    // Collect all (image_path, source_root) pairs from the provided paths.
+    let mut images: Vec<(PathBuf, PathBuf)> = Vec::new();
     for path_str in &input_paths {
         let path = PathBuf::from(path_str);
         if path.is_dir() {
@@ -34,30 +35,8 @@ pub async fn convert_batch(
     app.emit("conversion:start", serde_json::json!({ "total": total }))
         .ok();
 
-    let mut results = Vec::with_capacity(total);
-
-    for (i, (image, source_root)) in images.iter().enumerate() {
-        app.emit(
-            "conversion:file-start",
-            serde_json::json!({ "file": image.to_string_lossy(), "index": i }),
-        )
-        .ok();
-
-        let result = converter::convert_image(image, source_root, &output, &config);
-
-        app.emit(
-            "conversion:progress",
-            serde_json::json!({
-                "file": image.to_string_lossy(),
-                "index": i,
-                "success": result.success,
-                "outputSize": result.output_size.unwrap_or(0),
-            }),
-        )
-        .ok();
-
-        results.push(result);
-    }
+    let results =
+        converter::convert_batch_parallel(images, output, config, app.clone()).await;
 
     app.emit(
         "conversion:complete",
@@ -115,7 +94,6 @@ pub async fn pick_folder() -> Result<Option<String>, String> {
             .to_string();
         Ok(if path.is_empty() { None } else { Some(path) })
     } else {
-        // User cancelled — not an error
         Ok(None)
     }
 }

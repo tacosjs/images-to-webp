@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { ManualMode } from "./components/ManualMode";
 import { WatchMode } from "./components/WatchMode";
 import { SettingsPanel } from "./components/SettingsPanel";
-import { ConversionConfig } from "./lib/commands";
+import { HistoryLog, HistoryBatch } from "./components/HistoryLog";
+import { ConversionConfig, ConversionResult } from "./lib/commands";
 import "./App.css";
 
-type Mode = "manual" | "watch";
+type Mode = "manual" | "watch" | "log";
 
 function loadConfig(): ConversionConfig {
   try {
@@ -20,16 +22,40 @@ export default function App() {
     () => (localStorage.getItem("mode") as Mode | null) ?? "manual"
   );
   const [config, setConfig] = useState<ConversionConfig>(loadConfig);
+  const [history, setHistory] = useState<HistoryBatch[]>([]);
+  const batchIdRef = useRef(0);
+  // Track whether we have unseen log entries to show a badge
+  const [unseenCount, setUnseenCount] = useState(0);
 
   const handleModeChange = (m: Mode) => {
     setMode(m);
     localStorage.setItem("mode", m);
+    if (m === "log") setUnseenCount(0);
   };
 
   const handleConfigChange = (c: ConversionConfig) => {
     setConfig(c);
     localStorage.setItem("settings:config", JSON.stringify(c));
   };
+
+  // Listen globally to conversion:complete to build history across all modes
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<{ results?: ConversionResult[] }>("conversion:complete", ({ payload }) => {
+      const results = payload.results;
+      if (!results || results.length === 0) return;
+      const batch: HistoryBatch = {
+        id: ++batchIdRef.current,
+        completedAt: Date.now(),
+        results,
+      };
+      setHistory((prev) => [batch, ...prev]);
+      setUnseenCount((n) => n + results.length);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
 
   return (
     <div className="app">
@@ -48,16 +74,33 @@ export default function App() {
           >
             Watch
           </button>
+          <button
+            className={mode === "log" ? "tab active" : "tab"}
+            onClick={() => handleModeChange("log")}
+          >
+            Log
+            {unseenCount > 0 && mode !== "log" && (
+              <span className="tab-badge">{unseenCount}</span>
+            )}
+          </button>
         </nav>
       </header>
 
-      <SettingsPanel config={config} onChange={handleConfigChange} />
+      {mode !== "log" && (
+        <SettingsPanel config={config} onChange={handleConfigChange} />
+      )}
 
       <main className="app-main">
-        {mode === "manual" ? (
-          <ManualMode config={config} />
-        ) : (
-          <WatchMode config={config} />
+        {mode === "manual" && <ManualMode config={config} />}
+        {mode === "watch" && <WatchMode config={config} />}
+        {mode === "log" && (
+          <HistoryLog
+            history={history}
+            onClear={() => {
+              setHistory([]);
+              setUnseenCount(0);
+            }}
+          />
         )}
       </main>
     </div>

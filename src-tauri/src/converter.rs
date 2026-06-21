@@ -1,11 +1,14 @@
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::{Context, Result};
 use filetime::FileTime;
 use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
+use tokio::task::JoinSet;
 use walkdir::WalkDir;
 
 const SUPPORTED_EXTS: &[&str] = &["jpg", "jpeg", "png", "gif", "bmp", "webp"];
@@ -67,6 +70,74 @@ pub fn find_images(dir: &Path, since: Option<SystemTime>) -> Vec<PathBuf> {
         .collect()
 }
 
+/// Process a list of `(image_path, source_root)` pairs in parallel, emitting
+/// Tauri events for each file start, completion, and the final summary.
+///
+/// Concurrency is bounded to the number of logical CPU cores (max 8).
+pub async fn convert_batch_parallel(
+    images: Vec<(PathBuf, PathBuf)>,
+    output_dir: PathBuf,
+    config: ConversionConfig,
+    app: AppHandle,
+) -> Vec<ConversionResult> {
+    let total = images.len();
+    let concurrency = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(8);
+
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency));
+    let completed_count = Arc::new(AtomicUsize::new(0));
+    let mut set: JoinSet<(usize, ConversionResult)> = JoinSet::new();
+
+    for (i, (image, source_root)) in images.into_iter().enumerate() {
+        let permit = Arc::clone(&semaphore).acquire_owned().await.unwrap();
+        let app = app.clone();
+        let output_dir = output_dir.clone();
+        let config = config.clone();
+        let counter = Arc::clone(&completed_count);
+
+        set.spawn_blocking(move || {
+            let _permit = permit; // released when this closure returns
+
+            app.emit(
+                "conversion:file-start",
+                serde_json::json!({ "file": image.to_string_lossy(), "index": i }),
+            )
+            .ok();
+
+            let result = convert_image(&image, &source_root, &output_dir, &config);
+            let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
+
+            app.emit(
+                "conversion:progress",
+                serde_json::json!({
+                    "file": image.to_string_lossy(),
+                    "index": i,
+                    "completed": done,
+                    "total": total,
+                    "success": result.success,
+                    "originalSize": result.original_size.unwrap_or(0),
+                    "outputSize": result.output_size.unwrap_or(0),
+                }),
+            )
+            .ok();
+
+            (i, result)
+        });
+    }
+
+    let mut indexed: Vec<(usize, ConversionResult)> = Vec::with_capacity(total);
+    while let Some(res) = set.join_next().await {
+        if let Ok(pair) = res {
+            indexed.push(pair);
+        }
+    }
+    // Return results in original input order
+    indexed.sort_by_key(|(i, _)| *i);
+    indexed.into_iter().map(|(_, r)| r).collect()
+}
+
 /// Convert a single image to WebP, writing into `output_dir` mirroring the
 /// directory structure relative to `source_root`.
 pub fn convert_image(
@@ -103,20 +174,34 @@ fn do_convert(
     output_dir: &Path,
     config: &ConversionConfig,
 ) -> Result<(PathBuf, u64, u64)> {
-    let original_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
+    // Read source bytes once — used for both decoding and EXIF extraction.
+    let src_bytes = std::fs::read(input)
+        .with_context(|| format!("failed to read {}", input.display()))?;
+    let original_size = src_bytes.len() as u64;
 
-    // Open and optionally resize
-    let img = image::open(input)
-        .with_context(|| format!("failed to open {}", input.display()))?;
+    // Extract EXIF before handing bytes to the image decoder.
+    let exif_bytes = find_jpeg_exif_bytes(&src_bytes);
+
+    // Decode image.
+    let img = image::load_from_memory(&src_bytes)
+        .with_context(|| format!("failed to decode {}", input.display()))?;
+    drop(src_bytes); // free ~10 MB of phone photo RAM now
 
     let img = resize_if_needed(img, config.max_size);
 
-    // Encode to WebP
+    // Encode to WebP in memory.
     let encoder = webp::Encoder::from_image(&img)
         .map_err(|e| anyhow::anyhow!("webp encoder error: {e}"))?;
     let webp_data = encoder.encode(config.quality as f32);
 
-    // Compute output path (mirrors source tree, swaps extension to .webp)
+    // Optionally inject EXIF — stays in memory, no extra disk round-trip.
+    let final_bytes: Vec<u8> = if let Some(exif) = exif_bytes {
+        inject_exif_into_webp(&*webp_data, &exif).unwrap_or_else(|_| webp_data.to_vec())
+    } else {
+        webp_data.to_vec()
+    };
+
+    // Compute output path (mirrors source tree, .webp extension).
     let rel = input
         .strip_prefix(source_root)
         .unwrap_or_else(|_| Path::new(input.file_name().unwrap_or_default()));
@@ -131,16 +216,14 @@ fn do_convert(
             .with_context(|| format!("failed to create dir {}", parent.display()))?;
     }
 
-    std::fs::write(&output_path, &*webp_data)
+    // Single write to disk.
+    let output_size = final_bytes.len() as u64;
+    std::fs::write(&output_path, &final_bytes)
         .with_context(|| format!("failed to write {}", output_path.display()))?;
 
-    // Inject EXIF from source into output WebP where possible
-    let _ = transfer_exif(input, &output_path);
-
-    // Copy mtime/atime from source to output
+    // Copy mtime/atime from source to output.
     copy_timestamps(input, &output_path);
 
-    let output_size = std::fs::metadata(&output_path).map(|m| m.len()).unwrap_or(0);
     Ok((output_path, original_size, output_size))
 }
 
@@ -157,31 +240,10 @@ fn resize_if_needed(img: image::DynamicImage, max_size: u32) -> image::DynamicIm
     img.resize(nw, nh, FilterType::Lanczos3)
 }
 
-/// Read EXIF from JPEG source and write it into the output WebP's EXIF chunk.
-/// Silently skips sources that have no EXIF or are not JPEG/TIFF.
-fn transfer_exif(src: &Path, dst: &Path) -> Result<()> {
-    let src_file = std::fs::File::open(src)?;
-    let mut reader = BufReader::new(src_file);
-    let exif = exif::Reader::new().read_from_container(&mut reader)?;
-
-    // Re-read raw bytes for the EXIF chunk
-    let src_bytes = std::fs::read(src)?;
-    let raw_exif: Option<Vec<u8>> = find_jpeg_exif_bytes(&src_bytes);
-
-    if let Some(exif_bytes) = raw_exif {
-        let dst_bytes = std::fs::read(dst)?;
-        let patched = inject_exif_into_webp(&dst_bytes, &exif_bytes)?;
-        std::fs::write(dst, patched)?;
-    }
-
-    let _ = exif; // suppress unused warning
-    Ok(())
-}
-
-/// Extract the raw APP1/EXIF segment from a JPEG byte stream.
+/// Extract the raw EXIF payload from a JPEG APP1 segment.
 fn find_jpeg_exif_bytes(data: &[u8]) -> Option<Vec<u8>> {
     if data.len() < 4 || data[0] != 0xFF || data[1] != 0xD8 {
-        return None; // not JPEG
+        return None;
     }
     let mut i = 2usize;
     while i + 3 < data.len() {
@@ -201,34 +263,28 @@ fn find_jpeg_exif_bytes(data: &[u8]) -> Option<Vec<u8>> {
     None
 }
 
-/// Inject raw EXIF bytes into a WebP file by inserting an EXIF chunk into the RIFF container.
+/// Insert raw EXIF bytes into a WebP RIFF container as an EXIF chunk.
 fn inject_exif_into_webp(webp: &[u8], exif: &[u8]) -> Result<Vec<u8>> {
-    // Validate RIFF/WEBP header
     if webp.len() < 12 || &webp[0..4] != b"RIFF" || &webp[8..12] != b"WEBP" {
         anyhow::bail!("not a valid WebP file");
     }
 
-    let mut out = Vec::with_capacity(webp.len() + 8 + exif.len() + 1);
-
-    // Copy RIFF header (12 bytes), then all existing chunks, then append EXIF chunk
-    out.extend_from_slice(&webp[0..12]);
-
-    let mut chunks: Vec<u8> = webp[12..].to_vec();
-
-    // Build EXIF chunk: FourCC "EXIF" + LE u32 size + data (padded to even)
     let chunk_size = exif.len();
-    let mut exif_chunk = Vec::with_capacity(8 + chunk_size + (chunk_size & 1));
-    exif_chunk.extend_from_slice(b"EXIF");
-    exif_chunk.extend_from_slice(&(chunk_size as u32).to_le_bytes());
-    exif_chunk.extend_from_slice(exif);
+    let padded = chunk_size + (chunk_size & 1); // RIFF chunks are word-aligned
+    let mut out = Vec::with_capacity(webp.len() + 8 + padded);
+
+    out.extend_from_slice(&webp[0..12]); // RIFF header + WEBP
+    out.extend_from_slice(&webp[12..]); // existing chunks
+
+    // Append EXIF chunk
+    out.extend_from_slice(b"EXIF");
+    out.extend_from_slice(&(chunk_size as u32).to_le_bytes());
+    out.extend_from_slice(exif);
     if chunk_size & 1 == 1 {
-        exif_chunk.push(0); // padding byte
+        out.push(0);
     }
 
-    chunks.extend_from_slice(&exif_chunk);
-    out.extend_from_slice(&chunks);
-
-    // Fix the RIFF file size field (bytes 4..8 = total file size − 8)
+    // Fix RIFF file size field
     let riff_size = (out.len() - 8) as u32;
     out[4..8].copy_from_slice(&riff_size.to_le_bytes());
 

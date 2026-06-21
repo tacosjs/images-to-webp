@@ -543,3 +543,266 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.result-pct {
+  margin-left: 4px;
+  color: var(--success);
+  font-size: 11px;
+}
+
+/* ── Tab badge ── */
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 99px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 5px;
+  line-height: 1;
+}
+
+/* ── History / Log view ── */
+
+.log-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+/* Summary card */
+
+.log-summary-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.log-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.log-summary-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Summary stacked bar */
+
+.summary-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.summary-numbers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-arrow {
+  color: var(--text-muted);
+}
+
+.summary-saved {
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.summary-bar-track {
+  height: 8px;
+  border-radius: 99px;
+  overflow: hidden;
+  display: flex;
+}
+
+.summary-bar-output {
+  background: var(--accent);
+  height: 100%;
+  transition: width 0.4s ease;
+  min-width: 4px;
+}
+
+.summary-bar-saved {
+  background: rgba(82, 192, 122, 0.35);
+  height: 100%;
+  flex: 1;
+}
+
+.summary-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+
+/* Batch sections */
+
+.log-batches {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.log-batch {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.log-batch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-batch-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.log-batch-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Per-file rows */
+
+.log-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-row:last-child {
+  border-bottom: none;
+}
+
+.log-icon {
+  font-size: 11px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 14px;
+}
+
+.log-row--ok .log-icon   { color: var(--success); }
+.log-row--fail .log-icon { color: var(--danger); }
+
+.log-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.log-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.log-name {
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-pct {
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.log-sizes {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.log-error {
+  font-size: 11px;
+  color: var(--danger);
+}
+
+/* Per-file compression bar */
+
+.log-bar-track {
+  height: 3px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.log-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+/* Reduction % colour classes */
+
+.pct-great  { color: var(--success); }
+.pct-good   { color: var(--accent); }
+.pct-modest { color: var(--text-muted); }
+
+/* Empty state */
+
+.log-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.log-empty-icon {
+  font-size: 32px;
+  opacity: 0.4;
+}
+
+.log-empty-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.log-empty-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 240px;
+}

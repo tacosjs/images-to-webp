@@ -120,7 +120,7 @@ pub fn start(config: WatchConfig, app: AppHandle) -> anyhow::Result<WatcherHandl
             };
 
             if let Some(paths) = paths_to_process {
-                process_and_emit(&paths, &source_dir, &output_dir, &conv_config, &app_clone);
+                process_and_emit(&paths, &source_dir, &output_dir, &conv_config, &app_clone).await;
                 if let Ok(mut last) = last_processed_clone.lock() {
                     *last = SystemTime::now();
                 }
@@ -136,33 +136,28 @@ pub fn start(config: WatchConfig, app: AppHandle) -> anyhow::Result<WatcherHandl
     })
 }
 
-fn process_and_emit(
+async fn process_and_emit(
     paths: &[PathBuf],
     source_dir: &PathBuf,
     output_dir: &PathBuf,
     config: &ConversionConfig,
     app: &AppHandle,
 ) {
-    let total = paths.len();
+    let images: Vec<(PathBuf, PathBuf)> = paths
+        .iter()
+        .map(|p| (p.clone(), source_dir.clone()))
+        .collect();
+
+    let total = images.len();
     let _ = app.emit("conversion:start", serde_json::json!({ "total": total }));
 
-    for (i, path) in paths.iter().enumerate() {
-        let _ = app.emit(
-            "conversion:file-start",
-            serde_json::json!({ "file": path.to_string_lossy(), "index": i }),
-        );
+    let results = converter::convert_batch_parallel(
+        images,
+        output_dir.clone(),
+        config.clone(),
+        app.clone(),
+    )
+    .await;
 
-        let result = converter::convert_image(path, source_dir, output_dir, config);
-        let _ = app.emit(
-            "conversion:progress",
-            serde_json::json!({
-                "file": path.to_string_lossy(),
-                "index": i,
-                "success": result.success,
-                "outputSize": result.output_size.unwrap_or(0),
-            }),
-        );
-    }
-
-    let _ = app.emit("conversion:complete", serde_json::json!({ "total": total }));
+    let _ = app.emit("conversion:complete", serde_json::json!({ "results": results }));
 }
