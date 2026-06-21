@@ -1,8 +1,28 @@
-# Track input/ and output/ dirs; ignore their contents except .gitkeep
+# Source images and outputs
 input/*
 !input/.gitkeep
 output/*
 !output/.gitkeep
 
+# Node
 node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# OS
 .DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/

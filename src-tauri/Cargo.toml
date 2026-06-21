@@ -1,0 +1,36 @@
+[package]
+name = "images-to-webp"
+version = "0.1.0"
+description = "Convert images to WebP with metadata preservation"
+authors = ["jslyonnais"]
+edition = "2021"
+
+[lib]
+name = "images_to_webp_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+
+# Image processing
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "bmp", "webp"] }
+webp = "0.3"
+
+# EXIF metadata
+kamadak-exif = "0.5"
+
+# File timestamps
+filetime = "0.2"
+
+# Recursive directory walk
+walkdir = "2"
+
+# Filesystem watching (v8 is what's cached; kqueue backend is auto-selected on macOS)
+notify = "8"
