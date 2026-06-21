@@ -19,13 +19,13 @@ Thank you for your interest in contributing. This document covers prerequisites,
 
 ```bash
 # Install JS dependencies
-npm install
+pnpm install
 
 # Optional: verify Rust side compiles before starting the dev server
 cd src-tauri && cargo check && cd ..
 
 # Start the app in development mode
-npm run tauri dev
+pnpm start
 ```
 
 The first `tauri dev` compiles all Rust dependencies from scratch — expect 3–5 minutes. Subsequent incremental builds are fast (seconds) because only changed files recompile.
@@ -42,7 +42,7 @@ This compiles all _dependencies_ at full optimization while leaving your own cod
 ### Production build
 
 ```bash
-npm run tauri build
+pnpm run tauri build
 ```
 
 Produces a notarized `.app` bundle and a `.dmg` installer under `src-tauri/target/release/bundle/`.
@@ -52,7 +52,7 @@ Produces a notarized `.app` bundle and a `.dmg` installer under `src-tauri/targe
 ## Project structure
 
 ```text
-images-to-webp/
+smallerpixels/
 ├── src/                        # React frontend (TypeScript)
 │   ├── main.tsx
 │   ├── App.tsx                 # Tab switcher: Manual | Watch | Log

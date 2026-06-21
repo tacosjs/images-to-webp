@@ -29,8 +29,9 @@ export function SettingsPanel({ config, onChange }: Props) {
         <div className="input-row">
           <input
             type="range"
-            min={1}
+            min={0}
             max={100}
+            step={10}
             value={config.quality}
             onChange={(e) =>
               onChange({ ...config, quality: Number(e.target.value) })

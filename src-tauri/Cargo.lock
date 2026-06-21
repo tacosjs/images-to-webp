@@ -1531,24 +1531,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "images-to-webp"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "filetime",
- "image",
- "kamadak-exif",
- "notify",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tokio",
- "walkdir",
- "webp",
-]
-
-[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2968,6 +2950,24 @@ name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
+
+[[package]]
+name = "smallerpixels"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "filetime",
+ "image",
+ "kamadak-exif",
+ "notify",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tokio",
+ "walkdir",
+ "webp",
+]
 
 [[package]]
 name = "smallvec"

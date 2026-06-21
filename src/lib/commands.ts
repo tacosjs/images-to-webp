@@ -44,3 +44,6 @@ export const getWatchStatus = (): Promise<WatchStatus> =>
   invoke("get_watch_status");
 
 export const pickFolder = (): Promise<string | null> => invoke("pick_folder");
+
+export const revealInFinder = (path: string): Promise<void> =>
+  invoke("reveal_in_finder", { path });

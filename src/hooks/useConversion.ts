@@ -25,36 +25,34 @@ const INITIAL: ProgressState = {
 
 export function useConversion() {
   const [progress, setProgress] = useState<ProgressState>(INITIAL);
-  const unlisteners = useRef<UnlistenFn[]>([]);
-  // Track when the current file started so we can measure actual duration
   const fileStartRef = useRef<number | null>(null);
   const samplesRef = useRef<number[]>([]);
 
   useEffect(() => {
-    const setup = async () => {
-      const unStart = await listen<{ total: number }>(
-        "conversion:start",
-        ({ payload }) => {
-          samplesRef.current = [];
-          fileStartRef.current = null;
-          setProgress({
-            ...INITIAL,
-            isRunning: true,
-            total: payload.total,
-            startedAt: Date.now(),
-          });
-        },
-      );
+    let shouldUnlisten = false;
+    const fns: UnlistenFn[] = [];
 
-      const unFileStart = await listen<{ file: string; index: number }>(
+    Promise.all([
+      listen<{ total: number }>("conversion:start", ({ payload }) => {
+        samplesRef.current = [];
+        fileStartRef.current = null;
+        setProgress({
+          ...INITIAL,
+          isRunning: true,
+          total: payload.total,
+          startedAt: Date.now(),
+        });
+      }),
+
+      listen<{ file: string; index: number }>(
         "conversion:file-start",
         ({ payload }) => {
           fileStartRef.current = Date.now();
           setProgress((prev) => ({ ...prev, currentFile: payload.file }));
         },
-      );
+      ),
 
-      const unProgress = await listen<{
+      listen<{
         file: string;
         index: number;
         completed: number;
@@ -63,11 +61,9 @@ export function useConversion() {
         originalSize: number;
         outputSize: number;
       }>("conversion:progress", ({ payload }) => {
-        // Record timing sample
         if (fileStartRef.current !== null) {
           const elapsed = Date.now() - fileStartRef.current;
           samplesRef.current.push(elapsed);
-          // Keep last 10 samples for rolling average
           if (samplesRef.current.length > 10) samplesRef.current.shift();
           fileStartRef.current = null;
         }
@@ -94,9 +90,9 @@ export function useConversion() {
             },
           ],
         }));
-      });
+      }),
 
-      const unComplete = await listen<{ results: ConversionResult[] }>(
+      listen<{ results: ConversionResult[] }>(
         "conversion:complete",
         ({ payload }) => {
           setProgress((prev) => ({
@@ -106,13 +102,20 @@ export function useConversion() {
             results: payload.results ?? prev.results,
           }));
         },
-      );
+      ),
+    ]).then((unlisteners) => {
+      if (shouldUnlisten) {
+        unlisteners.forEach((fn) => fn());
+      } else {
+        fns.push(...unlisteners);
+      }
+    });
 
-      unlisteners.current = [unStart, unFileStart, unProgress, unComplete];
+    return () => {
+      shouldUnlisten = true;
+      fns.forEach((fn) => fn());
+      fns.length = 0;
     };
-
-    setup();
-    return () => unlisteners.current.forEach((fn) => fn());
   }, []);
 
   const reset = () => {

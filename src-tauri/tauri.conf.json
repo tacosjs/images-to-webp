@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Images to WebP",
+  "productName": "SmallerPixels",
   "version": "0.1.0",
-  "identifier": "com.tacosjs.images-to-webp",
+  "identifier": "com.tacosjs.smallerpixels",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Images to WebP",
+        "title": "SmallerPixels",
         "width": 900,
         "height": 680,
         "minWidth": 700,

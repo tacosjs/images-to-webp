@@ -1,14 +1,17 @@
 {
-  "name": "images-to-webp",
+  "name": "smallerpixels",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
+    "start": "tauri dev",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "test": "vitest run",
     "lint": "eslint",
     "format": "prettier --check .",

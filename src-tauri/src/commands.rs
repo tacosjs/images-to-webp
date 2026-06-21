@@ -80,6 +80,16 @@ pub async fn get_watch_status(state: State<'_, AppState>) -> Result<WatchStatus,
     })
 }
 
+/// Open a path in the native file manager (macOS Finder).
+#[tauri::command]
+pub async fn reveal_in_finder(path: String) -> Result<(), String> {
+    Command::new("open")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Show a native macOS folder-picker dialog via osascript.
 #[tauri::command]
 pub async fn pick_folder() -> Result<Option<String>, String> {

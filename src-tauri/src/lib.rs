@@ -22,6 +22,7 @@ pub fn run() {
             commands::stop_watch,
             commands::get_watch_status,
             commands::pick_folder,
+            commands::reveal_in_finder,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

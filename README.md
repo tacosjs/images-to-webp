@@ -1,6 +1,6 @@
-# Images to WebP
+# SmallerPixels
 
-A minimalist desktop app to batch-convert photos to WebP — preserving EXIF metadata and original file dates. Built with [Tauri v2](https://tauri.app) and React, targeting macOS first with Android on the roadmap.
+A minimalist desktop app to batch-convert photos to WebP, while preserving original metadata and file dates. Built with [Tauri v2](https://tauri.app) and React, targeting macOS first with Android on the roadmap.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)
@@ -10,7 +10,7 @@ A minimalist desktop app to batch-convert photos to WebP — preserving EXIF met
 
 ## Why
 
-Phone cameras produce large JPEG files. WebP cuts file size by 70–90% at comparable quality, making it ideal for archiving, backup, and sharing. This app handles the conversion automatically — either as a one-shot batch or as a background watcher that processes new photos as they arrive.
+Phone cameras produce large JPEG files. WebP cuts file size by 70–90% at comparable quality, making it ideal for archiving, backup, and sharing. This app handles the conversion automatically; either as a one-shot batch or as a background watcher that processes new photos as they arrive.
 
 ---
 

@@ -1,8 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { convertBatch, ConversionConfig, pickFolder } from "../lib/commands";
+import { downloadDir } from "@tauri-apps/api/path";
+import {
+  convertBatch,
+  ConversionConfig,
+  pickFolder,
+  revealInFinder,
+} from "../lib/commands";
 import { ProgressPanel } from "./ProgressPanel";
 import { useConversion } from "../hooks/useConversion";
+
+const SUPPORTED_EXTS = new Set(["jpg", "jpeg", "png", "gif", "bmp", "webp"]);
+
+function isImageOrFolder(path: string): boolean {
+  const name = path.split("/").pop() ?? path;
+  const dot = name.lastIndexOf(".");
+  if (dot === -1) return true; // no extension → treat as folder
+  return SUPPORTED_EXTS.has(name.slice(dot + 1).toLowerCase());
+}
 
 interface Props {
   config: ConversionConfig;
@@ -12,6 +27,8 @@ export function ManualMode({ config }: Props) {
   const [inputPaths, setInputPaths] = useState<string[]>([]);
   const [outputDir, setOutputDir] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [rejectedCount, setRejectedCount] = useState(0);
+  const rejectionTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { progress, reset } = useConversion();
 
   // Wire up Tauri drag-drop events
@@ -25,11 +42,15 @@ export function ManualMode({ config }: Props) {
           setIsDragOver(true);
         } else if (event.payload.type === "drop") {
           setIsDragOver(false);
-          const paths = event.payload.paths ?? [];
-          setInputPaths((prev) => {
-            const combined = [...prev, ...paths];
-            return [...new Set(combined)];
-          });
+          const all = event.payload.paths ?? [];
+          const accepted = all.filter(isImageOrFolder);
+          const rejected = all.length - accepted.length;
+          if (rejected > 0) {
+            clearTimeout(rejectionTimerRef.current);
+            setRejectedCount(rejected);
+            rejectionTimerRef.current = setTimeout(() => setRejectedCount(0), 3000);
+          }
+          setInputPaths((prev) => [...new Set([...prev, ...accepted])]);
         } else {
           setIsDragOver(false);
         }
@@ -56,14 +77,19 @@ export function ManualMode({ config }: Props) {
   const removePath = (p: string) =>
     setInputPaths((prev) => prev.filter((x) => x !== p));
 
+  const isDownloadMode = outputDir === "";
+
   const handleConvert = async () => {
-    if (!outputDir || inputPaths.length === 0) return;
+    if (inputPaths.length === 0) return;
     reset();
-    await convertBatch(inputPaths, outputDir, config);
+    const targetDir = outputDir || (await downloadDir());
+    await convertBatch(inputPaths, targetDir, config);
+    if (isDownloadMode) {
+      await revealInFinder(targetDir);
+    }
   };
 
-  const canConvert =
-    inputPaths.length > 0 && outputDir !== "" && !progress.isRunning;
+  const canConvert = inputPaths.length > 0 && !progress.isRunning;
 
   return (
     <div className="mode-content">
@@ -98,6 +124,12 @@ export function ManualMode({ config }: Props) {
         )}
       </div>
 
+      {rejectedCount > 0 && (
+        <p className="drop-rejected">
+          {rejectedCount} file{rejectedCount !== 1 ? "s" : ""} skipped — only image files are supported
+        </p>
+      )}
+
       {/* Output folder */}
       <div className="folder-row">
         <span className="folder-label">Output</span>
@@ -112,7 +144,13 @@ export function ManualMode({ config }: Props) {
         disabled={!canConvert}
         onClick={handleConvert}
       >
-        {progress.isRunning ? "Converting…" : "Convert"}
+        {progress.isRunning
+          ? isDownloadMode
+            ? "Downloading…"
+            : "Converting…"
+          : isDownloadMode
+            ? "Download"
+            : "Convert"}
       </button>
 
       <ProgressPanel progress={progress} onReset={reset} />

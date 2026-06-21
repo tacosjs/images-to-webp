@@ -1,5 +1,5 @@
 [package]
-name = "images-to-webp"
+name = "smallerpixels"
 version = "0.1.0"
 description = "Convert images to WebP with metadata preservation"
 authors = ["tacosjs"]

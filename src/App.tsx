@@ -43,7 +43,9 @@ export default function App() {
 
   // Listen globally to conversion:complete to build history across all modes
   useEffect(() => {
+    let shouldUnlisten = false;
     let unlisten: (() => void) | undefined;
+
     listen<{ results?: ConversionResult[] }>(
       "conversion:complete",
       ({ payload }) => {
@@ -58,9 +60,14 @@ export default function App() {
         setUnseenCount((n) => n + results.length);
       },
     ).then((fn) => {
-      unlisten = fn;
+      if (shouldUnlisten) fn();
+      else unlisten = fn;
     });
-    return () => unlisten?.();
+
+    return () => {
+      shouldUnlisten = true;
+      unlisten?.();
+    };
   }, []);
 
   return (
