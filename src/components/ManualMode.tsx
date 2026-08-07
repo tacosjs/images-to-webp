@@ -28,7 +28,9 @@ export function ManualMode({ config }: Props) {
   const [outputDir, setOutputDir] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [rejectedCount, setRejectedCount] = useState(0);
-  const rejectionTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const rejectionTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const { progress, reset } = useConversion();
 
   // Wire up Tauri drag-drop events
@@ -48,7 +50,10 @@ export function ManualMode({ config }: Props) {
           if (rejected > 0) {
             clearTimeout(rejectionTimerRef.current);
             setRejectedCount(rejected);
-            rejectionTimerRef.current = setTimeout(() => setRejectedCount(0), 3000);
+            rejectionTimerRef.current = setTimeout(
+              () => setRejectedCount(0),
+              3000,
+            );
           }
           setInputPaths((prev) => [...new Set([...prev, ...accepted])]);
         } else {
@@ -126,7 +131,8 @@ export function ManualMode({ config }: Props) {
 
       {rejectedCount > 0 && (
         <p className="drop-rejected">
-          {rejectedCount} file{rejectedCount !== 1 ? "s" : ""} skipped — only image files are supported
+          {rejectedCount} file{rejectedCount !== 1 ? "s" : ""} skipped — only
+          image files are supported
         </p>
       )}
 
