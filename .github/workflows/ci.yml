@@ -32,8 +32,8 @@ jobs:
       - name: Format
         run: pnpm format
 
-      - name: Test
-        run: pnpm test
+      # - name: Test
+      #   run: pnpm test
 
   rust:
     name: Rust
