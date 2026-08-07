@@ -24,8 +24,7 @@
     "@tauri-apps/plugin-fs": "^2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "tailwindcss": "^4.3.1",
-    "vitest": "^4.1.9"
+    "tailwindcss": "^4.3.1"
   },
   "devDependencies": {
     "@eslint-react/eslint-plugin": "^5.9.1",
@@ -41,6 +40,7 @@
     "prettier": "3.8.4",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.61.1",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   }
 }

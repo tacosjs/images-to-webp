@@ -298,3 +298,259 @@ fn copy_timestamps(src: &Path, dst: &Path) {
         let _ = filetime::set_file_times(dst, atime, mtime);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{DynamicImage, RgbImage};
+    use std::io::Cursor;
+    use std::time::Duration;
+
+    // ── is_supported_image ────────────────────────────────────────────────────
+
+    #[test]
+    fn supported_extensions_are_accepted() {
+        for ext in &["jpg", "jpeg", "png", "gif", "bmp", "webp"] {
+            let p = Path::new("file").with_extension(ext);
+            assert!(is_supported_image(&p), "{ext} should be supported");
+        }
+    }
+
+    #[test]
+    fn unsupported_extensions_are_rejected() {
+        for ext in &["txt", "pdf", "mp4", "tiff", "svg"] {
+            let p = Path::new("file").with_extension(ext);
+            assert!(!is_supported_image(&p), "{ext} should not be supported");
+        }
+    }
+
+    #[test]
+    fn extension_check_is_case_insensitive() {
+        assert!(is_supported_image(Path::new("photo.JPG")));
+        assert!(is_supported_image(Path::new("photo.PNG")));
+        assert!(is_supported_image(Path::new("photo.Jpeg")));
+    }
+
+    #[test]
+    fn missing_extension_is_rejected() {
+        assert!(!is_supported_image(Path::new("Makefile")));
+    }
+
+    // ── resize_if_needed ─────────────────────────────────────────────────────
+
+    fn blank(w: u32, h: u32) -> DynamicImage {
+        DynamicImage::ImageRgb8(RgbImage::new(w, h))
+    }
+
+    #[test]
+    fn small_image_is_not_resized() {
+        let result = resize_if_needed(blank(800, 600), 2048);
+        assert_eq!((result.width(), result.height()), (800, 600));
+    }
+
+    #[test]
+    fn image_at_exact_limit_is_not_resized() {
+        let result = resize_if_needed(blank(2048, 1024), 2048);
+        assert_eq!((result.width(), result.height()), (2048, 1024));
+    }
+
+    #[test]
+    fn landscape_is_constrained_by_width() {
+        let result = resize_if_needed(blank(4000, 2000), 2048);
+        assert_eq!((result.width(), result.height()), (2048, 1024));
+    }
+
+    #[test]
+    fn portrait_is_constrained_by_height() {
+        let result = resize_if_needed(blank(2000, 4000), 2048);
+        assert_eq!((result.width(), result.height()), (1024, 2048));
+    }
+
+    #[test]
+    fn square_image_respects_max_size() {
+        let result = resize_if_needed(blank(4096, 4096), 2048);
+        assert_eq!((result.width(), result.height()), (2048, 2048));
+    }
+
+    #[test]
+    fn small_image_is_never_upscaled() {
+        let result = resize_if_needed(blank(100, 100), 2048);
+        assert_eq!((result.width(), result.height()), (100, 100));
+    }
+
+    // ── find_jpeg_exif_bytes ─────────────────────────────────────────────────
+
+    /// Build a minimal JPEG with an APP1/Exif segment containing `payload`.
+    fn jpeg_with_exif(payload: &[u8]) -> Vec<u8> {
+        let segment_data: Vec<u8> = [b"Exif\0\0".as_slice(), payload].concat();
+        let seg_len = (segment_data.len() + 2) as u16; // includes 2-byte length field
+        let mut out = vec![0xFF, 0xD8, 0xFF, 0xE1];
+        out.extend_from_slice(&seg_len.to_be_bytes());
+        out.extend_from_slice(&segment_data);
+        out
+    }
+
+    #[test]
+    fn extracts_exif_payload_from_jpeg() {
+        let payload = b"fake exif bytes";
+        assert_eq!(
+            find_jpeg_exif_bytes(&jpeg_with_exif(payload)).as_deref(),
+            Some(payload.as_slice())
+        );
+    }
+
+    #[test]
+    fn returns_none_for_jpeg_without_exif() {
+        // APP0 (JFIF) marker — not an EXIF segment
+        let mut data = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
+        data.extend_from_slice(&[0u8; 14]); // 14 bytes of filler to match len=16
+        assert_eq!(find_jpeg_exif_bytes(&data), None);
+    }
+
+    #[test]
+    fn returns_none_for_non_jpeg_bytes() {
+        assert_eq!(find_jpeg_exif_bytes(b"\x89PNG\r\n"), None);
+        assert_eq!(find_jpeg_exif_bytes(b""), None);
+    }
+
+    // ── inject_exif_into_webp ─────────────────────────────────────────────────
+
+    /// Build a minimal but structurally valid RIFF/WEBP container.
+    fn minimal_webp() -> Vec<u8> {
+        let chunk_data = vec![0u8; 4];
+        let mut body: Vec<u8> = b"WEBP".to_vec();
+        body.extend_from_slice(b"VP8L");
+        body.extend_from_slice(&(chunk_data.len() as u32).to_le_bytes());
+        body.extend_from_slice(&chunk_data);
+
+        let mut out = b"RIFF".to_vec();
+        out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+        out.extend_from_slice(&body);
+        out
+    }
+
+    #[test]
+    fn injects_exif_chunk_and_keeps_riff_header() {
+        let result = inject_exif_into_webp(&minimal_webp(), b"fake exif").unwrap();
+        assert_eq!(&result[0..4], b"RIFF");
+        assert_eq!(&result[8..12], b"WEBP");
+        let has_exif = result[12..].windows(4).any(|w| w == b"EXIF");
+        assert!(has_exif, "EXIF chunk must be present in output");
+    }
+
+    #[test]
+    fn riff_size_field_matches_output_length() {
+        let result = inject_exif_into_webp(&minimal_webp(), b"fake exif").unwrap();
+        let reported = u32::from_le_bytes(result[4..8].try_into().unwrap()) as usize;
+        assert_eq!(reported, result.len() - 8);
+    }
+
+    #[test]
+    fn odd_length_exif_is_padded_to_even_boundary() {
+        let result = inject_exif_into_webp(&minimal_webp(), b"odd").unwrap(); // 3 bytes
+        // "EXIF" + 4-byte size + 3 bytes data + 1 pad = 12 bytes; total must be even
+        assert_eq!(result.len() % 2, 0);
+    }
+
+    #[test]
+    fn rejects_invalid_webp_input() {
+        assert!(inject_exif_into_webp(b"not a webp file!!!", b"x").is_err());
+        assert!(inject_exif_into_webp(b"", b"x").is_err());
+    }
+
+    // ── find_images ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn finds_images_recursively_skipping_other_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+
+        std::fs::write(dir.path().join("a.jpg"), b"").unwrap();
+        std::fs::write(sub.join("b.png"), b"").unwrap();
+        std::fs::write(dir.path().join("readme.txt"), b"").unwrap();
+
+        let found = find_images(dir.path(), None);
+        assert_eq!(found.len(), 2);
+    }
+
+    #[test]
+    fn find_images_returns_empty_when_no_images_present() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("data.json"), b"").unwrap();
+        assert!(find_images(dir.path(), None).is_empty());
+    }
+
+    #[test]
+    fn find_images_since_excludes_files_older_than_cutoff() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("old.jpg"), b"").unwrap();
+
+        // Cutoff is 1 hour in the future — existing file won't match
+        let future = SystemTime::now() + Duration::from_secs(3600);
+        assert!(find_images(dir.path(), Some(future)).is_empty());
+
+        // Without a cutoff the same file is found
+        assert_eq!(find_images(dir.path(), None).len(), 1);
+    }
+
+    // ── convert_image (integration) ───────────────────────────────────────────
+
+    fn make_png_bytes() -> Vec<u8> {
+        let img = image::RgbImage::from_fn(64, 64, |x, y| {
+            image::Rgb([(x * 4) as u8, (y * 4) as u8, 128])
+        });
+        let mut buf = Vec::new();
+        DynamicImage::ImageRgb8(img)
+            .write_to(&mut Cursor::new(&mut buf), image::ImageFormat::Png)
+            .unwrap();
+        buf
+    }
+
+    #[test]
+    fn convert_image_produces_webp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("test.png");
+        let out_dir = dir.path().join("out");
+        std::fs::create_dir(&out_dir).unwrap();
+        std::fs::write(&input, make_png_bytes()).unwrap();
+
+        let result = convert_image(&input, dir.path(), &out_dir, &ConversionConfig::default());
+
+        assert!(result.success, "conversion failed: {:?}", result.error);
+        assert!(result.output.ends_with(".webp"), "output should be .webp");
+        assert!(Path::new(&result.output).exists(), "output file should exist");
+        assert!(result.original_size.is_some());
+        assert!(result.output_size.is_some());
+    }
+
+    #[test]
+    fn convert_image_mirrors_directory_structure() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("vacation");
+        std::fs::create_dir(&sub).unwrap();
+        let input = sub.join("photo.png");
+        let out_dir = dir.path().join("out");
+        std::fs::create_dir(&out_dir).unwrap();
+        std::fs::write(&input, make_png_bytes()).unwrap();
+
+        let result = convert_image(&input, dir.path(), &out_dir, &ConversionConfig::default());
+
+        assert!(result.success);
+        // Output should mirror: out/vacation/photo.webp
+        let expected = out_dir.join("vacation").join("photo.webp");
+        assert_eq!(Path::new(&result.output), expected);
+    }
+
+    #[test]
+    fn convert_image_fails_gracefully_on_bad_input() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("corrupt.png");
+        std::fs::write(&input, b"this is not an image").unwrap();
+
+        let result = convert_image(&input, dir.path(), dir.path(), &ConversionConfig::default());
+
+        assert!(!result.success);
+        assert!(result.error.is_some());
+    }
+}

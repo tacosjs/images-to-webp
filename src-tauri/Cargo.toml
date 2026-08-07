@@ -40,3 +40,6 @@ walkdir = "2"
 
 # Filesystem watching (v8 is what's cached; kqueue backend is auto-selected on macOS)
 notify = "8"
+
+[dev-dependencies]
+tempfile = "3"
