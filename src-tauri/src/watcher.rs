@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
@@ -116,7 +116,7 @@ pub fn start(config: WatchConfig, app: AppHandle) -> anyhow::Result<WatcherHandl
                     }
                 }
             } else {
-                rx.recv().await.map(|p| p)
+                rx.recv().await
             };
 
             if let Some(paths) = paths_to_process {
@@ -138,14 +138,14 @@ pub fn start(config: WatchConfig, app: AppHandle) -> anyhow::Result<WatcherHandl
 
 async fn process_and_emit(
     paths: &[PathBuf],
-    source_dir: &PathBuf,
-    output_dir: &PathBuf,
+    source_dir: &Path,
+    output_dir: &Path,
     config: &ConversionConfig,
     app: &AppHandle,
 ) {
     let images: Vec<(PathBuf, PathBuf)> = paths
         .iter()
-        .map(|p| (p.clone(), source_dir.clone()))
+        .map(|p| (p.clone(), source_dir.to_path_buf()))
         .collect();
 
     let total = images.len();
@@ -153,7 +153,7 @@ async fn process_and_emit(
 
     let results = converter::convert_batch_parallel(
         images,
-        output_dir.clone(),
+        output_dir.to_path_buf(),
         config.clone(),
         app.clone(),
     )

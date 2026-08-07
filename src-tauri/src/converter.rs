@@ -196,7 +196,7 @@ fn do_convert(
 
     // Optionally inject EXIF — stays in memory, no extra disk round-trip.
     let final_bytes: Vec<u8> = if let Some(exif) = exif_bytes {
-        inject_exif_into_webp(&*webp_data, &exif).unwrap_or_else(|_| webp_data.to_vec())
+        inject_exif_into_webp(&webp_data, &exif).unwrap_or_else(|_| webp_data.to_vec())
     } else {
         webp_data.to_vec()
     };
