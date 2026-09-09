@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel an in-progress release build; only dedupe redundant PR/push checks.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   frontend:
@@ -69,7 +75,7 @@ jobs:
 
   release:
     name: Publish macOS build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: [frontend, rust]
     runs-on: macos-latest
     permissions:
@@ -93,13 +99,46 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Resolve release tag
+        id: release_info
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "tag=app-v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # tauri-action's own release-creation call isn't retried and has been seen to fail
+      # intermittently with "Request body length does not match content-length header"
+      # (a Node/undici keep-alive quirk). Creating the release via the gh CLI here avoids
+      # that code path; tauri-action then only needs to upload assets, which it does retry.
+      - name: Create GitHub release
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="${{ steps.release_info.outputs.tag }}"
+          VERSION="${{ steps.release_info.outputs.version }}"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            for attempt in 1 2 3; do
+              if gh release create "$TAG" \
+                --repo "${{ github.repository }}" \
+                --title "SmallerPixels v${VERSION}" \
+                --notes "See the assets to download this version and install."; then
+                break
+              fi
+              echo "Attempt $attempt to create release failed, retrying..."
+              sleep 5
+            done
+          fi
+          RELEASE_ID=$(gh release view "$TAG" --repo "${{ github.repository }}" --json databaseId --jq .databaseId)
+          echo "id=${RELEASE_ID}" >> "$GITHUB_OUTPUT"
+
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: app-v__VERSION__
-          releaseName: "SmallerPixels v__VERSION__"
+          releaseId: ${{ steps.create_release.outputs.id }}
+          tagName: ${{ steps.release_info.outputs.tag }}
           releaseBody: "See the assets to download this version and install."
-          releaseDraft: false
-          prerelease: false
+          retryAttempts: 3
